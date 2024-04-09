@@ -1,13 +1,18 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:sign_helper/resources/app_colors.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:http/http.dart' as http;
 import 'package:sign_helper/utils/utility.dart';
 import 'package:sign_helper/widgets/appbars/sh_main_app_bar.dart';
-import 'package:sign_helper/widgets/buttons/sh_no_splash_button.dart';
 import 'package:sign_helper/widgets/sh_background_container.dart';
 import 'package:video_player/video_player.dart';
 
 class SHDisplayResultPage extends StatefulWidget {
-  const SHDisplayResultPage({super.key});
+  const SHDisplayResultPage({super.key, required this.inputVideo});
+
+  final File inputVideo;
 
   @override
   State<SHDisplayResultPage> createState() => _SHDisplayResultPageState();
@@ -16,10 +21,34 @@ class SHDisplayResultPage extends StatefulWidget {
 class _SHDisplayResultPageState extends State<SHDisplayResultPage> {
   late VideoPlayerController _videoController;
   late Future<void> _initializeVideoPlayerFuture;
+  var textExtracted = "";
+
+  void getVideoFromServer() async {
+    var stream = widget.inputVideo.readAsBytes().asStream();
+    var length = widget.inputVideo.lengthSync();
+    var uri = Uri.parse("http://222.252.4.92:9091/uploadVideo/");
+    var request = http.MultipartRequest("POST", uri);
+    var multipartFile = http.MultipartFile(
+        'file',
+        stream,
+        length,
+        filename: widget.inputVideo.path.split("/").last
+    );
+    request.files.add(multipartFile);
+    EasyLoading.show(status: "Loading...");
+    var response = await request.send();
+    EasyLoading.dismiss();
+    final responseJson = json.decode(await response.stream.bytesToString());
+    setState(() {
+      textExtracted = responseJson["text"];
+    });
+    // print("Text: $textExtracted");
+  }
 
   @override
   void initState() {
-    _videoController = VideoPlayerController.asset("assets/videos/demo.mp4");
+    getVideoFromServer();
+    // _videoController = VideoPlayerController.asset("assets/videos/demo.mp4");
     // _videoController =
     //     VideoPlayerController.asset("assets/videos/action_4.mov");
     // _videoController = VideoPlayerController.networkUrl(Uri.parse(
@@ -47,7 +76,7 @@ class _SHDisplayResultPageState extends State<SHDisplayResultPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const SHMainAppBar(
-        title: "meo con di hoc.jpeg",
+        title: "Kết quả",
       ),
       // floatingActionButton: FloatingActionButton(
       //   onPressed: () {
@@ -78,7 +107,6 @@ class _SHDisplayResultPageState extends State<SHDisplayResultPage> {
               Expanded(
                 flex: 1,
                 child: Container(
-                  color: Colors.black,
                   width: double.maxFinite,
                   // child: FutureBuilder(
                   //   future: _initializeVideoPlayerFuture,
@@ -101,16 +129,16 @@ class _SHDisplayResultPageState extends State<SHDisplayResultPage> {
                   //     }
                   //   },
                   // ),
-                  child: Image.asset("assets/images/demo.gif"),
+                  child: Text(textExtracted)
                 ),
               ),
-              Expanded(
-                flex: 1,
-                child: Image.asset(
-                  Utility.getFullImagePath("meo_con_di_hoc"),
-                  width: double.maxFinite,
-                ),
-              ),
+              // Expanded(
+              //   flex: 1,
+              //   child: Image.asset(
+              //     Utility.getFullImagePath("meo_con_di_hoc"),
+              //     width: double.maxFinite,
+              //   ),
+              // ),
             ],
           ),
         ),
