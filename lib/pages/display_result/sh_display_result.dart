@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:http/http.dart' as http;
@@ -9,66 +10,80 @@ import 'package:sign_helper/widgets/appbars/sh_main_app_bar.dart';
 import 'package:sign_helper/widgets/sh_background_container.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../resources/app_colors.dart';
+
+
 class SHDisplayResultPage extends StatefulWidget {
-  const SHDisplayResultPage({super.key, required this.inputVideo});
+  const SHDisplayResultPage({super.key, required this.inputVideo, required this.signHelperVideoLink});
 
   final File inputVideo;
+  final String signHelperVideoLink;
 
   @override
   State<SHDisplayResultPage> createState() => _SHDisplayResultPageState();
 }
 
 class _SHDisplayResultPageState extends State<SHDisplayResultPage> {
-  late VideoPlayerController _videoController;
-  late Future<void> _initializeVideoPlayerFuture;
-  var textExtracted = "";
+  late VideoPlayerController _signHelperVideoController;
+  late VideoPlayerController _sourceVideoController;
+  late Future<void> _initializeSignHelperVideoPlayerFuture;
+  late Future<void> _initializeSourceVideoPlayerFuture;
+  late ChewieController _sourceVideoControllerChewie;
+  late ChewieController _signHelperVideoControllerChewie;
 
-  void getVideoFromServer() async {
-    var stream = widget.inputVideo.readAsBytes().asStream();
-    var length = widget.inputVideo.lengthSync();
-    var uri = Uri.parse("http://222.252.4.92:9091/uploadVideo/");
-    var request = http.MultipartRequest("POST", uri);
-    var multipartFile = http.MultipartFile(
-        'file',
-        stream,
-        length,
-        filename: widget.inputVideo.path.split("/").last
-    );
-    request.files.add(multipartFile);
-    EasyLoading.show(status: "Loading...");
-    var response = await request.send();
-    EasyLoading.dismiss();
-    final responseJson = json.decode(await response.stream.bytesToString());
-    setState(() {
-      textExtracted = responseJson["text"];
-    });
-    // print("Text: $textExtracted");
-  }
 
   @override
   void initState() {
-    getVideoFromServer();
-    // _videoController = VideoPlayerController.asset("assets/videos/demo.mp4");
-    // _videoController =
-    //     VideoPlayerController.asset("assets/videos/action_4.mov");
-    // _videoController = VideoPlayerController.networkUrl(Uri.parse(
-    //     "https://dl.dropboxusercontent.com/scl/fi/efg51rjoo2f0ufb8jie26/sign_helper_demo.mp4?rlkey=mjnvi95b4cbp04ae5mpzwh779&dl=0"));
-    // _videoController = VideoPlayerController.networkUrl(Uri.parse(
-    //     "https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4"));
-    _initializeVideoPlayerFuture = _videoController.initialize().then((value) {
-      _videoController.setLooping(true);
-      _videoController.setVolume(0);
-      _videoController.play();
-      setState(() {});
+    _sourceVideoController = VideoPlayerController.file(widget.inputVideo);
+    _initializeSourceVideoPlayerFuture = _sourceVideoController.initialize().then((value) {
+      _sourceVideoControllerChewie = ChewieController(
+        videoPlayerController: _sourceVideoController,
+        autoPlay: false,
+        looping: false,
+        allowPlaybackSpeedChanging: false,
+        allowFullScreen: false,
+        showControls: true,
+        autoInitialize: true,
+        errorBuilder: (context, errorMessage) {
+          return Center(
+            child: Text(
+              errorMessage,
+              style: const TextStyle(color: Colors.white),
+            ),
+          );
+        },
+      );
     });
+
+    _signHelperVideoController = VideoPlayerController.networkUrl(Uri.parse("https://dl.dropboxusercontent.com/scl/fi/efg51rjoo2f0ufb8jie26/sign_helper_demo.mp4?rlkey=mjnvi95b4cbp04ae5mpzwh779&dl=0"));
+    _initializeSignHelperVideoPlayerFuture = _signHelperVideoController.initialize().then((value) => _signHelperVideoControllerChewie = ChewieController(
+        videoPlayerController: _signHelperVideoController,
+        autoPlay: false,
+        looping: false,
+        allowPlaybackSpeedChanging: false,
+        allowFullScreen: false,
+        showControls: true,
+        autoInitialize: true,
+        errorBuilder: (context, errorMessage) {
+          return Center(
+            child: Text(
+              errorMessage,
+              style: const TextStyle(color: Colors.white),
+            ),
+          );
+        },
+      )
+    );
 
     super.initState();
   }
 
   @override
   void dispose() {
-    _videoController.pause();
-    _videoController.dispose();
+    _sourceVideoController.dispose();
+    _sourceVideoControllerChewie.dispose();
+    _signHelperVideoController.dispose();
+    _signHelperVideoControllerChewie.dispose();
     super.dispose();
   }
 
@@ -78,67 +93,43 @@ class _SHDisplayResultPageState extends State<SHDisplayResultPage> {
       appBar: const SHMainAppBar(
         title: "Kết quả",
       ),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () {
-      //     // Wrap the play or pause in a call to `setState`. This ensures the
-      //     // correct icon is shown.
-      //     setState(() {
-      //       // If the video is playing, pause it.
-      //       if (_videoController.value.isPlaying) {
-      //         _videoController.pause();
-      //       } else {
-      //         // If the video is paused, play it.
-      //         _videoController.play();
-      //       }
-      //     });
-      //   },
-      //   shape: const CircleBorder(),
-      //   backgroundColor: SHColors.primaryBlue,
-      //   // Display the correct icon depending on the state of the player.
-      //   child: Icon(
-      //     _videoController.value.isPlaying ? Icons.pause : Icons.play_arrow,
-      //     color: Colors.white,
-      //   ),
-      // ),
       body: SafeArea(
         child: SHBackgroundContainer(
           child: Column(
             children: [
               Expanded(
                 flex: 1,
-                child: Container(
-                  width: double.maxFinite,
-                  // child: FutureBuilder(
-                  //   future: _initializeVideoPlayerFuture,
-                  //   builder: (context, snapshot) {
-                  //     if (snapshot.connectionState == ConnectionState.done) {
-                  //       return FittedBox(
-                  //         fit: BoxFit.contain,
-                  //         child: SizedBox(
-                  //           height: _videoController.value.size.height,
-                  //           width: _videoController.value.size.width,
-                  //           child: VideoPlayer(_videoController),
-                  //         ),
-                  //       );
-                  //     } else {
-                  //       return const Center(
-                  //         child: CircularProgressIndicator(
-                  //           color: SHColors.primaryBlue,
-                  //         ),
-                  //       );
-                  //     }
-                  //   },
-                  // ),
-                  child: Text(textExtracted)
+                child: FutureBuilder(
+                  future: _initializeSourceVideoPlayerFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.done) {
+                      return AspectRatio(
+                        aspectRatio: _sourceVideoController.value.aspectRatio,
+                        child: Chewie(controller: _sourceVideoControllerChewie),
+                      );
+                    } else {
+                      return Container();
+                    }
+                  },
                 ),
               ),
-              // Expanded(
-              //   flex: 1,
-              //   child: Image.asset(
-              //     Utility.getFullImagePath("meo_con_di_hoc"),
-              //     width: double.maxFinite,
-              //   ),
-              // ),
+              Expanded(
+                flex: 1,
+                child: FutureBuilder(
+                  future: _initializeSignHelperVideoPlayerFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.done) {
+                      return AspectRatio(
+                        aspectRatio: _signHelperVideoController.value.aspectRatio,
+                        child: Chewie(controller: _signHelperVideoControllerChewie),
+                      );
+                    } else {
+                      return Container();
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 50)
             ],
           ),
         ),

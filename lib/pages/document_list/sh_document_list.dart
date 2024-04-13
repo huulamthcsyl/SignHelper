@@ -42,31 +42,8 @@ class _SHDocumentListPageState extends State<SHDocumentListPage> {
           color: Colors.transparent,
           child: ListView(
             padding: const EdgeInsets.all(16),
-            children: [
-              SHDocumentListItem(
-                imageName: "document_image",
-                documentName: "mèo con đi học.jpeg",
-                uploadDate: DateTime.now(),
-              ),
-              const SizedBox(height: 20),
-              SHDocumentListItem(
-                imageName: "document_file",
-                documentName: "truyện tấm cám.pdf",
-                uploadDate: DateTime.now(),
-              ),
-              const SizedBox(height: 20),
-              SHDocumentListItem(
-                imageName: "document_video",
-                documentName: "tin tức.mp4",
-                uploadDate: DateTime.now(),
-              ),
-              const SizedBox(height: 20),
-              SHDocumentListItem(
-                imageName: "document_audio",
-                documentName: "đọc truyện.mp3",
-                uploadDate: DateTime.now(),
-              ),
-              const SizedBox(height: 20),
+            children: const [
+
             ],
           ),
         ),
