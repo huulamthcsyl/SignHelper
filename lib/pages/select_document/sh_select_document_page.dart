@@ -1,9 +1,12 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_helper/pages/display_result/sh_display_result.dart';
 import 'package:sign_helper/resources/app_colors.dart';
 import 'package:sign_helper/utils/utility.dart';
@@ -25,33 +28,103 @@ class _SHSelectDocumentPageState extends State<SHSelectDocumentPage> {
 
   late File inputVideo;
   late String textExtracted;
-  String signHelperVideoLink = "";
+  late File signHelperVideo;
+  late String signHelperVideoLink;
 
-  void getSignHelperVideoLink() async {
+  void _saveSourceVideo() async {
+    var dir = await getApplicationDocumentsDirectory();
+    final inputVideoName = inputVideo.path.split("/").last;
+    inputVideo.copy("${dir.path}/${inputVideoName}");
+    _uploadVideoToServer();
+  }
+
+  void _addSourceVideoToDocumentList() async {
+    Map<String, String> document = {
+      "name": inputVideo.path.split("/").last,
+      "sourceVideoPath": inputVideo.path,
+      "signHelperVideoPath": signHelperVideo.path,
+      "date": DateTime.now().copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0).toString().replaceAll("00:00:00.000", ""),
+    };
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      await preferences.setString(inputVideo.path.split("/").last, jsonEncode(document));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SHDisplayResultPage(
+            inputVideo: inputVideo,
+            signHelperVideo: signHelperVideo,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint(e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: SHText(
+            title: "Không thể thêm tệp tin",
+            fontSize: 16,
+            textColor: SHColors.neutral0,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _downloadSignHelperVideo() async {
+    Dio dio = Dio();
+    EasyLoading.show(status: "Đang tải video ngôn ngữ ký hiệu...");
+    try {
+      var dir = await getApplicationDocumentsDirectory();
+      debugPrint(dir.path);
+      final inputVideoName = inputVideo.path.split("/").last;
+      await dio.download("https://dl.dropboxusercontent.com/scl/fi/efg51rjoo2f0ufb8jie26/sign_helper_demo.mp4?rlkey=mjnvi95b4cbp04ae5mpzwh779&dl=0", "${dir.path}/${inputVideoName}_sign_helper_video.mp4");
+      signHelperVideo = File("${dir.path}/${inputVideoName}_sign_helper_video.mp4");
+      _addSourceVideoToDocumentList();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: SHText(
+            title: "Không thể tải video ngôn ngữ ký hiệu",
+            fontSize: 16,
+            textColor: SHColors.neutral0,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+    EasyLoading.dismiss();
+  }
+
+  void _getSignHelperVideoLink() async {
     const url = "222.252.4.92:9091";
     var uri = Uri.http(url, "/transformTextToSpeech/", {"text": textExtracted});
     EasyLoading.show(status: "Đang chuyển sang ngôn ngữ ký hiệu...");
-    var response = await http.post(uri);
-    var responseJson = jsonDecode(response.body);
-    var message = jsonDecode(responseJson["message"]);
-    debugPrint(responseJson.toString());
-    debugPrint(message.toString());
-    var result = message["result"];
-    signHelperVideoLink = result["audio_link"];
-    debugPrint(signHelperVideoLink);
-    EasyLoading.dismiss();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SHDisplayResultPage(
-          inputVideo: inputVideo,
-          signHelperVideoLink: signHelperVideoLink,
+    try {
+      var response = await http.post(uri);
+      var responseJson = jsonDecode(response.body);
+      var message = jsonDecode(responseJson["message"]);
+      var result = message["result"];
+      signHelperVideoLink = result["audio_link"];
+      debugPrint(signHelperVideoLink);
+      _downloadSignHelperVideo();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: SHText(
+            title: "Không thể chuyển sang ngôn ngữ ký hiệu",
+            fontSize: 16,
+            textColor: SHColors.neutral0,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      ),
-    );
+      );
+    }
+    EasyLoading.dismiss();
   }
 
-  void getKeywordListFromText(text){
+  void _getKeywordListFromText(text){
     const start = "[";
     const end = "]";
     final startIndex = text.indexOf(start);
@@ -60,10 +133,10 @@ class _SHSelectDocumentPageState extends State<SHSelectDocumentPage> {
     setState(() {
       textExtracted = result;
     });
-    getSignHelperVideoLink();
+    _getSignHelperVideoLink();
   }
 
-  void uploadVideoToServer() async {
+  void _uploadVideoToServer() async {
     var stream = inputVideo.readAsBytes().asStream();
     var length = inputVideo.lengthSync();
     var uri = Uri.parse("http://222.252.4.92:9091/uploadVideo/");
@@ -72,14 +145,29 @@ class _SHSelectDocumentPageState extends State<SHSelectDocumentPage> {
         'file',
         stream,
         length,
-        filename: inputVideo.path.split("/").last
+        filename: inputVideo.path
+            .split("/")
+            .last
     );
     request.files.add(multipartFile);
     EasyLoading.show(status: "Đang xử lý video...");
-    var response = await request.send();
+    try {
+      var response = await request.send();
+      final responseJson = json.decode(await response.stream.bytesToString());
+      _getKeywordListFromText(responseJson["message"]);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: SHText(
+            title: "Không thể tải video lên máy chủ",
+            fontSize: 16,
+            textColor: SHColors.neutral0,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
     EasyLoading.dismiss();
-    final responseJson = json.decode(await response.stream.bytesToString());
-    getKeywordListFromText(responseJson["message"]);
   }
 
   void _onTapSelectFile({required BuildContext context}) async {
@@ -89,8 +177,20 @@ class _SHSelectDocumentPageState extends State<SHSelectDocumentPage> {
       setState(() {
         inputVideo = file;
       });
-      uploadVideoToServer();
+      _saveSourceVideo();
     }
+  }
+
+  void _onTapCamera({required BuildContext context}) {
+    const SnackBar snackBar = SnackBar(
+      content: SHText(
+        title: "Chức năng đang phát triển",
+        fontSize: 16,
+        textColor: SHColors.neutral0,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   @override
@@ -141,17 +241,7 @@ class _SHSelectDocumentPageState extends State<SHSelectDocumentPage> {
                   height: 250,
                   width: double.maxFinite,
                   child: SHNoSplashButton(
-                    onTap: () {
-                      const SnackBar snackBar = SnackBar(
-                        content: SHText(
-                          title: "Chức năng đang phát triển",
-                          fontSize: 16,
-                          textColor: SHColors.neutral0,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                    },
+                    onTap: () => _onTapCamera(context: context),
                     child: DottedBorder(
                       borderPadding: EdgeInsets.zero,
                       dashPattern: const [8, 8],

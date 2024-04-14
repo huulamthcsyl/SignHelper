@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_helper/pages/document_list/document_item/sh_document_list_item.dart';
 import 'package:sign_helper/pages/select_document/sh_select_document_page.dart';
 import 'package:sign_helper/resources/app_colors.dart';
@@ -14,12 +17,39 @@ class SHDocumentListPage extends StatefulWidget {
 }
 
 class _SHDocumentListPageState extends State<SHDocumentListPage> {
+
+  List<Map<String, String>> documents = [];
+
+  @override
+  void initState(){
+    SharedPreferences.getInstance().then((preferences) {
+      preferences.getKeys().forEach((key) {
+        documents.add(Map<String, String>.from(jsonDecode(preferences.getString(key)!)));
+      });
+      setState(() {
+        documents = documents;
+      });
+    });
+
+    super.initState();
+  }
+
   void _onTapPlusClosure({required BuildContext context}) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => SHSelectDocumentPage(),
+        builder: (context) => const SHSelectDocumentPage(),
       ),
-    );
+    ).then((value) => setState(() {
+      SharedPreferences.getInstance().then((preferences) {
+        documents.clear();
+        preferences.getKeys().forEach((key) {
+          documents.add(Map<String, String>.from(jsonDecode(preferences.getString(key)!)));
+        });
+        setState(() {
+          documents = documents;
+        });
+      });
+    }));
   }
 
   @override
@@ -40,11 +70,17 @@ class _SHDocumentListPageState extends State<SHDocumentListPage> {
       body: SHBackgroundContainer(
         child: Container(
           color: Colors.transparent,
-          child: ListView(
+          child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            children: const [
-
-            ],
+            itemCount: documents.length,
+            itemBuilder: (context, index) {
+              return SHDocumentListItem(
+                sourceVideoName: documents[index]["name"]!,
+                sourceVideoPath: documents[index]["sourceVideoPath"]!,
+                signHelperVideoPath: documents[index]["signHelperVideoPath"]!,
+                uploadDate: documents[index]["date"]!,
+              );
+            },
           ),
         ),
       ),

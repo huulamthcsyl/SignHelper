@@ -14,10 +14,10 @@ import '../../resources/app_colors.dart';
 
 
 class SHDisplayResultPage extends StatefulWidget {
-  const SHDisplayResultPage({super.key, required this.inputVideo, required this.signHelperVideoLink});
+  const SHDisplayResultPage({super.key, required this.inputVideo, required this.signHelperVideo});
 
   final File inputVideo;
-  final String signHelperVideoLink;
+  final File signHelperVideo;
 
   @override
   State<SHDisplayResultPage> createState() => _SHDisplayResultPageState();
@@ -55,7 +55,7 @@ class _SHDisplayResultPageState extends State<SHDisplayResultPage> {
       );
     });
 
-    _signHelperVideoController = VideoPlayerController.networkUrl(Uri.parse("https://dl.dropboxusercontent.com/scl/fi/efg51rjoo2f0ufb8jie26/sign_helper_demo.mp4?rlkey=mjnvi95b4cbp04ae5mpzwh779&dl=0"));
+    _signHelperVideoController = VideoPlayerController.file(widget.signHelperVideo);
     _initializeSignHelperVideoPlayerFuture = _signHelperVideoController.initialize().then((value) => _signHelperVideoControllerChewie = ChewieController(
         videoPlayerController: _signHelperVideoController,
         autoPlay: false,
@@ -113,6 +113,7 @@ class _SHDisplayResultPageState extends State<SHDisplayResultPage> {
                   },
                 ),
               ),
+              const SizedBox(height: 20),
               Expanded(
                 flex: 1,
                 child: FutureBuilder(
