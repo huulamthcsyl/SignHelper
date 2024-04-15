@@ -3,14 +3,9 @@ import 'dart:io';
 
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:http/http.dart' as http;
-import 'package:sign_helper/utils/utility.dart';
 import 'package:sign_helper/widgets/appbars/sh_main_app_bar.dart';
 import 'package:sign_helper/widgets/sh_background_container.dart';
 import 'package:video_player/video_player.dart';
-
-import '../../resources/app_colors.dart';
 
 
 class SHDisplayResultPage extends StatefulWidget {

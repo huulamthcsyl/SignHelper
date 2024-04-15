@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:dotted_border/dotted_border.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_helper/pages/display_result/sh_display_result.dart';
@@ -16,6 +16,7 @@ import 'package:sign_helper/widgets/sh_background_container.dart';
 import 'package:sign_helper/widgets/sh_text.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:file_picker/file_picker.dart';
 
 class SHSelectDocumentPage extends StatefulWidget {
   const SHSelectDocumentPage({super.key});
@@ -77,7 +78,6 @@ class _SHSelectDocumentPageState extends State<SHSelectDocumentPage> {
     EasyLoading.show(status: "Đang tải video ngôn ngữ ký hiệu...");
     try {
       var dir = await getApplicationDocumentsDirectory();
-      debugPrint(dir.path);
       final inputVideoName = inputVideo.path.split("/").last;
       await dio.download("https://dl.dropboxusercontent.com/scl/fi/efg51rjoo2f0ufb8jie26/sign_helper_demo.mp4?rlkey=mjnvi95b4cbp04ae5mpzwh779&dl=0", "${dir.path}/${inputVideoName}_sign_helper_video.mp4");
       signHelperVideo = File("${dir.path}/${inputVideoName}_sign_helper_video.mp4");
@@ -107,7 +107,6 @@ class _SHSelectDocumentPageState extends State<SHSelectDocumentPage> {
       var message = jsonDecode(responseJson["message"]);
       var result = message["result"];
       signHelperVideoLink = result["audio_link"];
-      debugPrint(signHelperVideoLink);
       _downloadSignHelperVideo();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -182,15 +181,16 @@ class _SHSelectDocumentPageState extends State<SHSelectDocumentPage> {
   }
 
   void _onTapCamera({required BuildContext context}) {
-    const SnackBar snackBar = SnackBar(
-      content: SHText(
-        title: "Chức năng đang phát triển",
-        fontSize: 16,
-        textColor: SHColors.neutral0,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    final ImagePicker picker = ImagePicker();
+    picker.pickVideo(source: ImageSource.camera).then((value) {
+      debugPrint(value.toString());
+      if (value != null) {
+        setState(() {
+          inputVideo = File(value.path);
+        });
+        _saveSourceVideo();
+      }
+    });
   }
 
   @override
